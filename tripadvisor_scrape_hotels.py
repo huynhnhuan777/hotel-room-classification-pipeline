@@ -13,11 +13,11 @@ OUT_CSV = "tripadvisor_hcm_hotels_list.csv"
 STATE_FILE = "tripadvisor_state.json"
 DEBUG_DIR = "debug"
 
-BATCH_PAGES = 20                 # mỗi lần chạy crawl bao nhiêu trang
+BATCH_PAGES = 20                
 SCROLL_ROUNDS = 12
-SLEEP_BETWEEN_PAGES = 3       # tăng lên nếu hay bị block
+SLEEP_BETWEEN_PAGES = 3     
 
-MAX_PAGES_FALLBACK = 252         # nếu không đọc được total_results
+MAX_PAGES_FALLBACK = 252         
 
 BASE = "https://www.tripadvisor.com.vn"
 
@@ -25,16 +25,15 @@ USE_CDP = True
 CDP_URL = "http://127.0.0.1:9222"
 HEADLESS = False  
 
-# Rating + reviews dạng: "4,9 (187 đánh giá)" hoặc "4.9 (187 reviews)"
+
 RATING_REV_RE = re.compile(
     r"(?<![\d#])([0-5](?:[.,]\d)?)\s*\(\s*([\d\.,]+)\s*(đánh\s*giá|reviews)\b",
     re.IGNORECASE
 )
 
-# Reviews riêng: "(187 đánh giá)" / "187 đánh giá" / "187 reviews"
+
 REV_ONLY_RE = re.compile(r"(?<!\d)([\d\.,]+)\s*(đánh\s*giá|reviews)\b", re.IGNORECASE)
 
-# Giá: "4.368.421 đ" hoặc "₫ 4.368.421" hoặc "4.368.421 VND"
 PRICE_RE_1 = re.compile(r"(?<!\d)([\d\.,]{4,})\s*đ\b", re.IGNORECASE)
 PRICE_RE_2 = re.compile(r"₫\s*([\d\.,]{4,})", re.IGNORECASE)
 PRICE_RE_3 = re.compile(r"(?<!\d)([\d\.,]{4,})\s*VND\b", re.IGNORECASE)
@@ -93,7 +92,7 @@ def is_block_or_verify(page) -> bool:
     """
     hotel_sel = "a[href*='/Hotel_Review-'][href*='-Reviews-']"
     try:
-        # Nếu có nhiều hotel link thì KHÔNG block (tránh false positive)
+        # Nếu có nhiều hotel link thì KHÔNG block 
         if page.locator(hotel_sel).count() >= 5:
             return False
     except Exception:
@@ -102,7 +101,6 @@ def is_block_or_verify(page) -> bool:
     txt = (page.content() or "").lower()
 
     hard_signs = [
-        # captcha / challenge
         "captcha", "hcaptcha", "recaptcha", "arkose", "funcaptcha",
         "challenge-platform", "cf-chl", "cloudflare",
         "verify you are", "unusual traffic", "access denied",
