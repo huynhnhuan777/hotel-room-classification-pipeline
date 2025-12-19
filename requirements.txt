@@ -1,0 +1,22 @@
+# Core
+requests
+pandas
+numpy
+tqdm
+
+# HTML parsing
+beautifulsoup4
+lxml
+
+# Browser automation
+playwright
+selenium
+
+# AI-powered crawling
+firecrawl-py
+
+# ML / classification (future pipeline)
+scikit-learn
+
+# Utilities
+python-dotenv
