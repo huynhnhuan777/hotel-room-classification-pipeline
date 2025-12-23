@@ -5,11 +5,56 @@ from datetime import datetime, timedelta
 import os
 import random
 import math
+import json
+from sqlalchemy import create_engine, text
 
-# --- CẤU HÌNH ---
-OUTPUT_FILE = "booking_random_scenarios.csv"
+# --- CẤU HÌNH DATABASE ---
+DB_CONFIG = {
+    "dbname": "booking_data",  
+    "user": "postgres",         
+    "password": "123456",  
+    "host": "localhost",          
+    "port": "5432"             
+}
+
+# Tạo chuỗi kết nối
+DB_CONNECTION_STR = f"postgresql+psycopg2://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}"
+
+# --- CẤU HÌNH SCRAPING ---
+TABLE_NAME = "hotel_scenarios" 
 BASE_URL = "https://www.booking.com/searchresults.vi.html"
-LOCATION = "Thành+phố+Hồ+Chí+Minh"
+LOCATIONS = {
+    "Ho Chi Minh": "Thành+phố+Hồ+Chí+Minh",
+    "Vung Tau": "Vũng+Tàu",
+    "Binh Duong": "Bình+Dương"
+}
+# --- CẤU TRÚC BẢNG SQL ---
+CREATE_TABLE_SQL = f"""
+CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+    id SERIAL PRIMARY KEY,
+    search_location VARCHAR(100),
+    scenario VARCHAR(255),
+    hotel_name TEXT,
+    stars REAL,
+    final_price BIGINT,
+    original_price BIGINT,
+    rating_score REAL,
+    review_count REAL,
+    location_score REAL,
+    address TEXT,
+    distance TEXT,
+    room_type TEXT,
+    bed_type TEXT,
+    free_cancellation VARCHAR(50),
+    breakfast_included VARCHAR(50),
+    badge_deal TEXT,
+    check_in DATE,
+    adults INTEGER,
+    children INTEGER,
+    rooms INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
 
 def generate_random_config():
     # 1. Random số người lớn (1 đến 6 người)
@@ -65,9 +110,9 @@ RANDOM_CONFIGS = [generate_random_config() for _ in range(20)]
 import json
 print(json.dumps(RANDOM_CONFIGS, indent=2))
 
-async def scrape_detailed_data(page, checkin, checkout, config):
+async def scrape_detailed_data(page, checkin, checkout, config, location_name, location_query):
     # 1. Tạo URL
-    url = f"{BASE_URL}?ss={LOCATION}&checkin={checkin}&checkout={checkout}"
+    url = f"{BASE_URL}?ss={location_query}&checkin={checkin}&checkout={checkout}"
     url += f"&group_adults={config['adults']}&no_rooms={config['rooms']}&group_children={config['children']}"
     for age in config['ages']:
         url += f"&age={age}"
@@ -78,7 +123,7 @@ async def scrape_detailed_data(page, checkin, checkout, config):
         await page.goto(url, timeout=60000)
         
         # --- XỬ LÝ POPUP ---
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
         try: await page.keyboard.press("Escape")
         except: pass
         try:
@@ -89,7 +134,7 @@ async def scrape_detailed_data(page, checkin, checkout, config):
         # --- GIAI ĐOẠN 1: SCROLL & LOAD MORE ---
         print("    -> Bắt đầu quy trình mở rộng danh sách...")
         click_count = 0
-        max_clicks = 40 
+        max_clicks = 100
         
         while click_count < max_clicks:
             last_height = await page.evaluate("document.body.scrollHeight")
@@ -259,59 +304,54 @@ async def scrape_detailed_data(page, checkin, checkout, config):
                 info['Final Price'] = fVal.toString();
                 info['Original Price'] = oVal.toString();
                 
-                // 4. Rating
+                // === 4. Rating ===
                 let ratingScore = "N/A";
-                const reviewScoreBlock = card.querySelector('div[data-testid="review-score"]');
-                if (reviewScoreBlock) {
-                    const visibleScoreDiv = reviewScoreBlock.querySelector('div[aria-hidden="true"]');
-                    if (visibleScoreDiv) {
-                        ratingScore = visibleScoreDiv.innerText.trim();
-                    } 
-                    
-                    if (ratingScore === "N/A" || ratingScore === "") {
-                         const scoredDiv = reviewScoreBlock.innerText;
-                         const match = scoredDiv.match(/(\d+(\.\d+)?)/);
-                         if (match) ratingScore = match[0];
-                    }
+                const scoreCard = card.querySelector('[data-testid="review-score"] div[aria-hidden="true"]') || 
+                                  card.querySelector('[data-testid="review-score"] div:first-child') ||
+                                  card.querySelector('.ac4a7896c7');
+
+                if (scoreCard) {
+                    let rawScore = scoreCard.innerText.trim();
+                    rawScore = rawScore.replace(',', '.'); // Xử lý dấu phẩy
+                    const match = rawScore.match(/(\d+(\.\d+)?)/);
+                    if (match) ratingScore = match[0];
                 }
                 info['Rating Score'] = ratingScore;
                 
-                const reviewBlockText = reviewScoreBlock ? reviewScoreBlock.innerText : "";
-                const reviewMatch = reviewBlockText.match(/(\d+|\d+\.\d+)\s*(reviews|đánh giá)/i);
-                info['Review Count'] = reviewMatch ? reviewMatch[1] : "N/A";
+                // === Review Count (Xử lý dấu chấm hàng nghìn) ===
+                let reviewCount = "N/A";
+                const reviewTextEl = card.querySelector('[data-testid="review-score"] div:last-child') ||
+                                     card.querySelector('[data-testid="review-score"]');
+                if (reviewTextEl) {
+                    const rText = reviewTextEl.innerText.replace(/\./g, ''); // Bỏ dấu chấm (1.200 -> 1200)
+                    const match = rText.match(/(\d+)\s*(reviews|đánh giá)/i);
+                    if (match) reviewCount = match[1];
+                }
+                info['Review Count'] = reviewCount;
 
                 // === 5. LOCATION SCORE ===
                 let locScore = "N/A";
-                // Tìm thẻ chính xác theo ảnh: data-testid="secondary-review-score-link"
-                const locEl = card.querySelector('[data-testid="secondary-review-score-link"]');
+                const secondaryScore = card.querySelector('[data-testid="secondary-review-score-link"]');
                 
-                if (locEl) {
-                    // Ưu tiên 1: Lấy từ text (VD: "Location 9.6")
-                    const txt = locEl.innerText;
-                    const match = txt.match(/(\d+[.,]\d+)/);
-                    if (match) {
-                        locScore = match[1];
-                    } 
-                    // Ưu tiên 2: Lấy từ aria-label nếu text ko có số
-                    else {
-                         const aria = locEl.getAttribute('aria-label') || "";
-                         const ariaMatch = aria.match(/(\d+[.,]\d+)/);
-                         if (ariaMatch) locScore = ariaMatch[1];
+                // Tìm text theo từ khóa nếu không có selector ID
+                const locationTextElement = Array.from(card.querySelectorAll('span, div')).find(el => 
+                    (el.innerText.includes('Location') || el.innerText.includes('Địa điểm')) && 
+                    /\d+[.,]\d+/.test(el.innerText)
+                );
+
+                let locRaw = "";
+                if (secondaryScore) {
+                    locRaw = secondaryScore.innerText;
+                } else if (locationTextElement) {
+                    locRaw = locationTextElement.innerText;
+                }
+
+                if (locRaw) {
+                    locRaw = locRaw.replace(',', '.'); // Xử lý dấu phẩy
+                    const match = locRaw.match(/(\d+(\.\d+)?)/); 
+                    if (match && parseFloat(match[0]) <= 10) {
+                        locScore = match[0];
                     }
-                } 
-                // Fallback cũ
-                else {
-                     const candidates = card.querySelectorAll('span, div');
-                     for (let el of candidates) {
-                        const txt = el.innerText || "";
-                        if (txt.includes("Location") || txt.includes("Địa điểm")) {
-                            const match = txt.match(/(\d+[.,]\d+)/);
-                            if (match && parseFloat(match[1].replace(',','.')) <= 10) {
-                                locScore = match[1];
-                                break;
-                            }
-                        }
-                     }
                 }
                 info['Location Score'] = locScore;
 
@@ -386,7 +426,7 @@ async def scrape_detailed_data(page, checkin, checkout, config):
 
         print(f"       Đã trích xuất xong {len(raw_data)} dòng dữ liệu từ JS.")
 
-        # Xử lý lại dữ liệu (Python side)
+        # Xử lý lại dữ liệu 
         all_hotels_data = []
         for item in raw_data:
             try: f_price = int(item['Final Price'])
@@ -401,10 +441,12 @@ async def scrape_detailed_data(page, checkin, checkout, config):
 
             final_item = {
                 "Scenario": config['name'],
+                "search_location": location_name,
                 "Check-in": checkin,
                 "Check-out": checkout,
                 "Adults": config['adults'],
                 "Children": config['children'],
+                "Rooms": config['rooms'],
                 "Source": "Booking.com",
                 **item,
                 "Final Price": f_price,
@@ -421,46 +463,98 @@ async def scrape_detailed_data(page, checkin, checkout, config):
         return []
     
 async def main():
-    async with async_playwright() as p:
-        print("KHỞI ĐỘNG CÔNG CỤ (FULL INFO - LOAD MORE)...")
+    # 1. Khởi tạo Engine Database
+    print(" Đang kết nối Database Postgres...")
+    try:
+        engine = create_engine(DB_CONNECTION_STR)
         
-        # Ngày: Mai -> Kia
+        with engine.connect() as conn:
+            # DROP table cũ
+            print(f"   Đang xóa bảng cũ '{TABLE_NAME}' (nếu có) để cập nhật cấu trúc mới...")
+            conn.execute(text(f"DROP TABLE IF EXISTS {TABLE_NAME};"))
+            
+            print("   Đang tạo bảng mới...")
+            conn.execute(text(CREATE_TABLE_SQL))
+            conn.commit()
+            print("   Đã chuẩn bị Database xong!")
+
+    except Exception as e:
+        print(f" Lỗi kết nối/xóa Database: {e}")
+        return
+
+    async with async_playwright() as p:
+        print(" KHỞI ĐỘNG TRÌNH DUYỆT...")
+        
         tomorrow = datetime.now() + timedelta(days=1)
         next_day = tomorrow + timedelta(days=1)
         c_in = tomorrow.strftime("%Y-%m-%d")
         c_out = next_day.strftime("%Y-%m-%d")
         
-        print(f"Ngày Check-in: {c_in}")
-        
         browser = await p.chromium.launch(headless=False)
-        context = await browser.new_context(
-            viewport={'width': 1366, 'height': 768},
-            locale="vi-VN" 
-        )
-        await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        context = await browser.new_context(viewport={'width': 1366, 'height': 768}, locale="vi-VN")
         page = await context.new_page()
 
-        for config in RANDOM_CONFIGS:
-            data = await scrape_detailed_data(page, c_in, c_out, config)
-            if data:
-                df = pd.DataFrame(data)
-                header = not os.path.exists(OUTPUT_FILE)
-                # Sắp xếp cột
-                cols = ["Scenario", "Hotel Name", "Stars", "Final Price", "Original Price", 
-                        "Rating Score", "Review Count", "Location Score", 
-                        "Address", "Distance", "Room Type", "Bed Type", 
-                        "Free Cancellation", "Breakfast Included", "Badge Deal",
-                        "Check-in", "Adults", "Children"]
-                existing_cols = [c for c in cols if c in df.columns]
-                df = df[existing_cols]
-                
-                df.to_csv(OUTPUT_FILE, mode='a', header=header, index=False, encoding='utf-8-sig')
-                print(f"    -> Đã lưu {len(data)} dòng cho {config['name']}.")
+        for loc_name, loc_query in LOCATIONS.items():
+            print(f"\n==========================================")
+            print(f" BẮT ĐẦU CÀO DỮ LIỆU TẠI: {loc_name.upper()}")
+            print(f"==========================================")
             
-            await asyncio.sleep(3)
+            for config in RANDOM_CONFIGS:
+                # Truyền thêm tham số location vào hàm cào
+                data = await scrape_detailed_data(page, c_in, c_out, config, loc_name, loc_query)
+                
+                if data:
+                    df = pd.DataFrame(data)
+                    
+                    # Danh sách cột
+                    cols = ["search_location", "Scenario", "Hotel Name", "Stars", "Final Price", "Original Price", 
+                            "Rating Score", "Review Count", "Location Score", 
+                            "Address", "Distance", "Room Type", "Bed Type", 
+                            "Free Cancellation", "Breakfast Included", "Badge Deal",
+                            "Check-in", "Adults", "Children", "Rooms"]
+                    
+                    existing_cols = [c for c in cols if c in df.columns]
+                    df = df[existing_cols]
+
+                    numeric_cols = ["Stars", "Rating Score", "Review Count", "Location Score"]
+                    for col in numeric_cols:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+                    rename_map = {
+                        "search_location": "search_location",
+                        "Scenario": "scenario",
+                        "Hotel Name": "hotel_name",
+                        "Stars": "stars",
+                        "Final Price": "final_price",
+                        "Original Price": "original_price",
+                        "Rating Score": "rating_score",
+                        "Review Count": "review_count",
+                        "Location Score": "location_score",
+                        "Address": "address",
+                        "Distance": "distance",
+                        "Room Type": "room_type",
+                        "Bed Type": "bed_type",
+                        "Free Cancellation": "free_cancellation",
+                        "Breakfast Included": "breakfast_included",
+                        "Badge Deal": "badge_deal",
+                        "Check-in": "check_in",
+                        "Adults": "adults",
+                        "Children": "children",
+                        "Rooms": "rooms"
+                    }
+                    df = df.rename(columns=rename_map)
+
+                    try:
+                        df.to_sql(TABLE_NAME, engine, if_exists='append', index=False)
+                        print(f"    ->  Đã lưu {len(data)} dòng của {loc_name} vào Database.")
+                    except Exception as e:
+                        print(f"    ->  Lỗi lưu Database: {e}")
+                
+                await asyncio.sleep(2) 
 
         await browser.close()
-        print(f"\nHOÀN TẤT! File: {OUTPUT_FILE}")
+        print(f"\n HOÀN TẤT TOÀN BỘ QUÁ TRÌNH CÀO DỮ LIỆU!")
 
 if __name__ == "__main__":
     asyncio.run(main())
