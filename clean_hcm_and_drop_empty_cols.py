@@ -16,15 +16,8 @@ def extract_price(price_str):
     if not valid: return None, None
     return min(valid), max(valid)
 
-def clean_country(country_str):
-    if pd.isna(country_str): return "Việt Nam"
-    try:
-        return ast.literal_eval(country_str).get('name', 'Việt Nam')
-    except:
-        return str(country_str)
-
 def main():
-    print(f"⏳ Reading {INP}...")
+    print(f" Reading {INP}...")
     try:
         df = pd.read_csv(INP, on_bad_lines='skip', engine='python')
     except FileNotFoundError:
@@ -58,7 +51,7 @@ def main():
 
     df_final = pd.concat([df_ok, df_shifted], ignore_index=True)
     
-    print(f"🔄 Combined dataset: {len(df_final)} rows")
+    print(f"Combined dataset: {len(df_final)} rows")
 
     
 

@@ -1,5 +1,4 @@
 ﻿final_name,detail_url,_parse_status,ratingValue,reviewCount,price_min,price_max,price_avg,streetAddress,addressLocality,addressCountry,lat,lng,amenities
-Hotel Indigo Saigon the City by IHG,https://www.tripadvisor.com.vn/Hotel_Review-g293925-d26848304-Reviews-Hotel_Indigo_Saigon_the_City_by_IHG-Ho_Chi_Minh_City.html,blocked,0.0,0.0,,,,,,Việt Nam,0.0,0.0,
 La Vela Saigon Hotel,https://www.tripadvisor.com.vn/Hotel_Review-g293925-d20411635-Reviews-La_Vela_Saigon_Hotel-Ho_Chi_Minh_City.html,ok_jsonld,4.8,2164.0,2684211.0,8342105.0,5513158.0,280 Nam Ky Khoi Nghia,Thành phố Hồ Chí Minh,Việt Nam,10.788694,106.68536,
 Au Lac Charner Hotel,https://www.tripadvisor.com.vn/Hotel_Review-g293925-d15113167-Reviews-Au_Lac_Charner_Hotel-Ho_Chi_Minh_City.html,ok_jsonld,4.8,4120.0,2368421.0,3973684.0,3171052.5,87-89-91 Hồ Tùng Mậu Street,Thành phố Hồ Chí Minh,Việt Nam,10.772157,106.70363,
 Khách sạn Windsor Plaza,https://www.tripadvisor.com.vn/Hotel_Review-g293925-d505784-Reviews-Windsor_Plaza_Hotel-Ho_Chi_Minh_City.html,ok_jsonld,4.2,1375.0,1868421.0,2447368.0,2157894.5,18 An Dương Vương Quận 5,Thành phố Hồ Chí Minh,Việt Nam,10.75786,106.673355,

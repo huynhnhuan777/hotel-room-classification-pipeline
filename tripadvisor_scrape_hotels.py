@@ -25,22 +25,21 @@ USE_CDP = True
 CDP_URL = "http://127.0.0.1:9222"
 HEADLESS = False  
 
-
+#Regex để trích xuất rating + reviews + price từ text thẻ card
 RATING_REV_RE = re.compile(
     r"(?<![\d#])([0-5](?:[.,]\d)?)\s*\(\s*([\d\.,]+)\s*(đánh\s*giá|reviews)\b",
     re.IGNORECASE
 )
-
-
 REV_ONLY_RE = re.compile(r"(?<!\d)([\d\.,]+)\s*(đánh\s*giá|reviews)\b", re.IGNORECASE)
 
+#Regex để trích xuất giá từ text thẻ card
 PRICE_RE_1 = re.compile(r"(?<!\d)([\d\.,]{4,})\s*đ\b", re.IGNORECASE)
 PRICE_RE_2 = re.compile(r"₫\s*([\d\.,]{4,})", re.IGNORECASE)
 PRICE_RE_3 = re.compile(r"(?<!\d)([\d\.,]{4,})\s*VND\b", re.IGNORECASE)
 
 
+#Chuẩn hoá URL khách sạn Tripadvisor bằng cách loại bỏ query string,giúp tránh trùng lặp URL khi lưu dữ liệu.
 def canonicalize_url(url: str) -> str:
-    """Bỏ query (?spAttributionToken=...) và fragment"""
     if not url:
         return ""
     if url.startswith("/"):
@@ -51,6 +50,7 @@ def canonicalize_url(url: str) -> str:
     return m.group(1) if m else clean
 
 
+#Tạo URL phân trang danh sách khách sạn dựa trên cơ chế -oa{offset}- của Tripadvisor để truy cập các trang tiếp theo.
 def build_list_url_with_offset(base_url: str, offset: int) -> str:
     """
     Hotels-g293925-Ho_Chi_Minh_City-Hotels.html
@@ -64,7 +64,7 @@ def build_list_url_with_offset(base_url: str, offset: int) -> str:
         path = re.sub(r"(Hotels-g\d+-)", rf"\1oa{offset}-", path)
     return urlunparse((u.scheme, u.netloc, path, "", "", ""))
 
-
+# Chấp nhận cookie nếu có popup hiện lên
 def accept_cookies_if_any(page):
     candidates = [
         "#onetrust-accept-btn-handler",
@@ -83,7 +83,7 @@ def accept_cookies_if_any(page):
         except Exception:
             pass
 
-
+# Kiểm tra xem trang có bị chặn hoặc yêu cầu xác minh không 
 def is_block_or_verify(page) -> bool:
     """
     Chỉ coi là block nếu:
@@ -109,7 +109,7 @@ def is_block_or_verify(page) -> bool:
     ]
     return any(s in txt for s in hard_signs)
 
-
+# Lưu trang debug khi bị block hoặc không có link hotel
 def save_debug(page, name: str):
     os.makedirs(DEBUG_DIR, exist_ok=True)
     html_path = os.path.join(DEBUG_DIR, f"{name}.html")
@@ -122,7 +122,7 @@ def save_debug(page, name: str):
         pass
     print(f"[DEBUG] saved: {html_path} (+ png nếu được)")
 
-
+# Tự động cuộn trang cho đến khi không còn nội dung mới được tải thêm
 def auto_scroll_until_stable(page, rounds=10):
     selector = "a[href*='/Hotel_Review-'][href*='-Reviews-']"
     last = 0
@@ -138,7 +138,7 @@ def auto_scroll_until_stable(page, rounds=10):
             cur = cur2
         last = cur
 
-
+# Phân tích tổng số kết quả từ văn bản trên trang
 def parse_total_results_from_text(page):
     """
     Ví dụ: "Hiển thị kết quả 31-60 trong số 7.565" -> 7565
@@ -151,19 +151,19 @@ def parse_total_results_from_text(page):
     num = re.sub(r"[^\d]", "", raw)
     return int(num) if num.isdigit() else None
 
-
+# Phân tích các chỉ số từ thẻ card khách sạn
 def _to_float_rating(s: str):
     try:
         return float(s.replace(",", "."))
     except Exception:
         return None
 
-
+# Phân tích các chỉ số từ thẻ card khách sạn
 def _to_int_number(s: str):
     num = re.sub(r"[^\d]", "", s or "")
     return int(num) if num.isdigit() else None
 
-
+# Phân tích các chỉ số từ thẻ card khách sạn
 def parse_card_metrics(card_text: str):
     """
     Trả về (rating_float, reviews_int, price_vnd_int)
@@ -197,7 +197,7 @@ def parse_card_metrics(card_text: str):
 
     return rating, reviews, price_vnd
 
-
+# Tìm thẻ card tốt nhất cho link khách sạn
 def best_card_for_link(a):
     """
     Leo lên ancestor để bắt đúng card (chứa 'đánh giá' hoặc giá 'đ')
@@ -211,7 +211,7 @@ def best_card_for_link(a):
             return c
     return a.locator("xpath=ancestor::*[self::div or self::article][1]").first
 
-
+# Trích xuất danh sách khách sạn từ trang hiện tại
 def extract_hotels_from_list(page, seen_urls: set):
     rows = []
 
@@ -252,7 +252,7 @@ def extract_hotels_from_list(page, seen_urls: set):
 
     return rows
 
-
+# Lưu và tải trạng thái để chạy tiếp
 def load_state():
     if not os.path.exists(STATE_FILE):
         return {"next_page": 1, "max_pages": None}
@@ -267,7 +267,7 @@ def save_state(next_page: int, max_pages):
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump({"next_page": next_page, "max_pages": max_pages}, f, ensure_ascii=False, indent=2)
 
-
+# Tải các URL đã thấy từ CSV để tránh trùng lặp
 def load_seen_urls_from_csv(path: str) -> set:
     if not os.path.exists(path):
         return set()
@@ -283,7 +283,7 @@ def load_seen_urls_from_csv(path: str) -> set:
         pass
     return seen
 
-
+# Ghi các hàng mới vào CSV
 def append_rows_to_csv(path: str, rows: list[dict]):
     if not rows:
         return
@@ -294,7 +294,6 @@ def append_rows_to_csv(path: str, rows: list[dict]):
         if not file_exists:
             writer.writeheader()
         writer.writerows(rows)
-
 
 def main():
     state = load_state()
@@ -370,7 +369,6 @@ def main():
             try:
                 page.wait_for_selector(selector, timeout=15000)
             except PwTimeout:
-                print("Không thấy link hotel -> lưu debug và dừng (state giữ để chạy tiếp).")
                 save_debug(page, f"no_links_page_{page_idx}")
                 save_state(next_page=page_idx, max_pages=max_pages)
                 browser.close()
@@ -386,11 +384,6 @@ def main():
             time.sleep(SLEEP_BETWEEN_PAGES)
 
         browser.close()
-
-    print(f"\n[DONE BATCH] total unique saved so far: {len(seen_urls)}")
-    print(f"Saved -> {OUT_CSV}")
-    print(f"Next run continues from page {min(end_page + 1, max_pages)} (see {STATE_FILE})")
-
 
 if __name__ == "__main__":
     main()

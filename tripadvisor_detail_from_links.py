@@ -17,16 +17,17 @@ DEBUG_DIR = Path("debug_pages")
 DEBUG_DIR.mkdir(exist_ok=True)
 
 # nghỉ giữa các request để giảm rủi ro bị chặn
-SLEEP_MIN = 2.5
-SLEEP_MAX = 5.5
+SLEEP_MIN = 3.0
+SLEEP_MAX = 6.0
 
+# Các dấu hiệu trang xác minh bot
 BOT_SIGNS = [
     "verify you are", "unusual traffic", "captcha", "robot",
     "chúng tôi phát hiện", "xác minh", "không phải robot",
     "access denied", "blocked", "sorry you have been blocked",
 ]
 
-
+# Chuẩn hóa URL chi tiết khách sạn
 def canonicalize_url(url: str) -> str:
     """Bỏ query/fragment, giữ path .html."""
     u = urlparse(url)
@@ -34,12 +35,12 @@ def canonicalize_url(url: str) -> str:
     m = re.search(r"^(.*?\.html)", clean)
     return m.group(1) if m else clean
 
-
+# Kiểm tra xem trang có dấu hiệu bị chặn hay không
 def looks_blocked(html: str) -> bool:
     t = (html or "").lower()
     return any(s in t for s in BOT_SIGNS)
 
-
+# Trích xuất JSON-LD khách sạn từ trang
 def extract_jsonld_hotel(soup: BeautifulSoup) -> dict | None:
     """
     Tìm JSON-LD có @type LodgingBusiness/Hotel
@@ -67,7 +68,7 @@ def extract_jsonld_hotel(soup: BeautifulSoup) -> dict | None:
                 return c
     return None
 
-
+# Phân tích chi tiết khách sạn từ HTML
 def parse_detail(html: str, url: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
 
@@ -127,7 +128,7 @@ def parse_detail(html: str, url: str) -> dict:
 
     return out
 
-
+# Lấy HTML từ URL với trạng thái trả về
 def fetch_html(session: requests.Session, url: str) -> tuple[int | None, str]:
     headers = {
         "User-Agent": (
