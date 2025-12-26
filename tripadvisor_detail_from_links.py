@@ -1,211 +1,279 @@
 import json
 import random
-import re
 import time
+import re
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
-import requests
 from bs4 import BeautifulSoup
 
-INPUT_CSV = "hotels_input.csv"
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+
+INPUT_CSV = "tripadvisor_hcm_hotels_list_link.csv"  
 OUT_CSV = "hotels_detail_output.csv"
-OUT_JSONL = "hotels_detail_output.jsonl"
+OUT_JSON = "hotels_detail_output.json"
 
-DEBUG_DIR = Path("debug_pages")
-DEBUG_DIR.mkdir(exist_ok=True)
+SLEEP_MIN = 5
+SLEEP_MAX = 8
 
-# nghỉ giữa các request để giảm rủi ro bị chặn
-SLEEP_MIN = 3.0
-SLEEP_MAX = 6.0
+# Cấu hình nghỉ giải lao
+BATCH_SIZE = 30       # Cứ sau 30 link thì nghỉ
+LONG_SLEEP_TIME = 30  # Thời gian nghỉ (giây)
 
-# Các dấu hiệu trang xác minh bot
-BOT_SIGNS = [
-    "verify you are", "unusual traffic", "captcha", "robot",
-    "chúng tôi phát hiện", "xác minh", "không phải robot",
-    "access denied", "blocked", "sorry you have been blocked",
-]
 
-# Chuẩn hóa URL chi tiết khách sạn
 def canonicalize_url(url: str) -> str:
-    """Bỏ query/fragment, giữ path .html."""
-    u = urlparse(url)
-    clean = urlunparse((u.scheme, u.netloc, u.path, "", "", ""))
-    m = re.search(r"^(.*?\.html)", clean)
-    return m.group(1) if m else clean
+    if not url: return ""
+    try:
+        u = urlparse(url)
+        return urlunparse((u.scheme, u.netloc, u.path, "", "", ""))
+    except:
+        return url
 
-# Kiểm tra xem trang có dấu hiệu bị chặn hay không
-def looks_blocked(html: str) -> bool:
-    t = (html or "").lower()
-    return any(s in t for s in BOT_SIGNS)
+def clean_price(price_str):
+    if not price_str: return None
+    return re.sub(r'\(.*?\)', '', str(price_str)).strip()
 
-# Trích xuất JSON-LD khách sạn từ trang
-def extract_jsonld_hotel(soup: BeautifulSoup) -> dict | None:
-    """
-    Tìm JSON-LD có @type LodgingBusiness/Hotel
-    """
+def expand_amenities_and_details(driver):
+    try:
+        buttons = driver.find_elements(By.XPATH, "//div[contains(@id, 'ABOUT_TAB')]//div[contains(text(), 'Hiển thị thêm') or contains(text(), 'Show more')]")
+        for btn in buttons:
+            try:
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                time.sleep(0.5)
+                driver.execute_script("arguments[0].click();", btn)
+                time.sleep(1)
+            except:
+                pass
+    except:
+        pass
+
+def extract_amenities_from_page(driver, soup):
+    amenities = set()
+    try:
+        amenity_groups = driver.find_elements(By.CSS_SELECTOR, "div[data-test-target='amenity_text']")
+        for el in amenity_groups:
+            text = el.text.strip()
+            if text: amenities.add(text)
+    except:
+        pass
+    
+    if len(amenities) < 3:
+        about_tab = soup.select_one("#ABOUT_TAB")
+        if about_tab:
+            candidates = about_tab.find_all("div", string=True)
+            keywords = ["Wifi", "Hồ bơi", "Spa", "Gym", "Nhà hàng", "Đỗ xe", "Lễ tân", "Điều hòa", "Giặt ủi"]
+            for tag in candidates:
+                text = tag.get_text(strip=True)
+                if 3 < len(text) < 50 and any(k.lower() in text.lower() for k in keywords):
+                    amenities.add(text)
+
+    clean_list = [a for a in amenities if "Hiển thị" not in a and "đánh giá" not in a]
+    return ", ".join(sorted(clean_list))
+
+def extract_room_types_safe(soup):
+    room_types = set()
+    about_section = soup.select_one("#ABOUT_TAB")
+    if about_section:
+        text_content = about_section.get_text(" | ")
+        keywords = [
+            "Ngắm cảnh", "Thành phố", "Sông", "Hồ bơi", 
+            "Phòng không hút thuốc", "Phòng cách âm", "Phòng gia đình", "Suite", 
+            "Ban công", "Bếp nhỏ", "Minibar", 
+            "Hạng trung", "Công tác"
+        ]
+        for k in keywords:
+            if k.lower() in text_content.lower():
+                pattern = re.compile(re.escape(k), re.IGNORECASE)
+                match = pattern.search(text_content)
+                if match:
+                    room_types.add(match.group(0))
+    return ", ".join(sorted(list(room_types)))
+
+def extract_jsonld_hotel(soup):
     for s in soup.select('script[type="application/ld+json"]'):
-        txt = (s.string or "").strip()
-        if not txt:
-            continue
         try:
-            obj = json.loads(txt)
-        except Exception:
+            obj = json.loads(s.string or "")
+            candidates = obj.get("@graph", [obj]) if isinstance(obj, dict) else obj
+            if not isinstance(candidates, list): candidates = [candidates]
+            for c in candidates:
+                if isinstance(c, dict) and c.get("@type") in ("Hotel", "LodgingBusiness", "Resort"):
+                    return c
+        except:
             continue
-
-        candidates = []
-        if isinstance(obj, dict):
-            if isinstance(obj.get("@graph"), list):
-                candidates.extend(obj["@graph"])
-            else:
-                candidates.append(obj)
-        elif isinstance(obj, list):
-            candidates.extend(obj)
-
-        for c in candidates:
-            if isinstance(c, dict) and c.get("@type") in ("LodgingBusiness", "Hotel"):
-                return c
     return None
 
-# Phân tích chi tiết khách sạn từ HTML
-def parse_detail(html: str, url: str) -> dict:
+def parse_detail(driver, url):
+    html = driver.page_source
     soup = BeautifulSoup(html, "lxml")
 
     out = {
         "detail_url": canonicalize_url(url),
-        "phone": None,
         "name_detail": None,
+        "phone": None,
         "ratingValue": None,
         "reviewCount": None,
         "priceRange": None,
-        "streetAddress": None,
-        "addressLocality": None,
-        "addressRegion": None,
-        "postalCode": None,
-        "addressCountry": None,
-        "lat": None,
-        "lng": None,
-        "amenities": None, 
-        "_parse_status": None,
+        "address": None,
+        "amenities": None,
+        "room_types": None
     }
 
-    # phone
-    tel = soup.select_one('a[href^="tel:"]')
-    if tel and tel.get("href"):
-        out["phone"] = tel["href"].replace("tel:", "").strip()
-
-    # JSON-LD
     ld = extract_jsonld_hotel(soup)
-    if not ld:
-        out["_parse_status"] = "no_jsonld"
-        return out
+    if ld:
+        out["name_detail"] = ld.get("name")
+        out["priceRange"] = clean_price(ld.get("priceRange"))
+        ar = ld.get("aggregateRating") or {}
+        out["ratingValue"] = ar.get("ratingValue")
+        out["reviewCount"] = ar.get("reviewCount")
+        addr = ld.get("address") or {}
+        parts = [
+            addr.get("streetAddress"),
+            addr.get("addressLocality"),
+            addr.get("postalCode"),
+            addr.get("addressCountry", {}).get("name") if isinstance(addr.get("addressCountry"), dict) else addr.get("addressCountry")
+        ]
+        out["address"] = ", ".join([p for p in parts if p])
 
-    out["_parse_status"] = "ok_jsonld"
-    out["name_detail"] = ld.get("name")
-    out["priceRange"] = ld.get("priceRange")
-
-    ar = ld.get("aggregateRating") or {}
-    out["ratingValue"] = ar.get("ratingValue")
-    out["reviewCount"] = ar.get("reviewCount")
-
-    addr = ld.get("address") or {}
-    out["streetAddress"] = addr.get("streetAddress")
-    out["addressLocality"] = addr.get("addressLocality")
-    out["addressRegion"] = addr.get("addressRegion")
-    out["postalCode"] = addr.get("postalCode")
-    out["addressCountry"] = addr.get("addressCountry")
-
-    geo = ld.get("geo") or {}
-    out["lat"] = geo.get("latitude")
-    out["lng"] = geo.get("longitude")
-
-    amenities = []
-    for af in (ld.get("amenityFeature") or []):
-        if isinstance(af, dict) and af.get("name"):
-            amenities.append(af["name"])
-    out["amenities"] = ", ".join(amenities) if amenities else None
+    tel = soup.select_one('a[href^="tel:"]')
+    if tel:
+        out["phone"] = tel.get("href").replace("tel:", "").strip()
+    
+    out["amenities"] = extract_amenities_from_page(driver, soup)
+    out["room_types"] = extract_room_types_safe(soup)
+    
+    if not out["name_detail"]:
+        try:
+            h1 = soup.select_one("h1#HEADING")
+            if h1: out["name_detail"] = h1.get_text(strip=True)
+        except:
+            pass
 
     return out
+def load_existing_results():
+    if Path(OUT_CSV).exists():
+        df_old = pd.read_csv(OUT_CSV)
 
-# Lấy HTML từ URL với trạng thái trả về
-def fetch_html(session: requests.Session, url: str) -> tuple[int | None, str]:
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
-    }
-    r = session.get(url, headers=headers, timeout=35)
-    return r.status_code, r.text
+        if "detail_url" not in df_old.columns:
+            df_old["detail_url"] = ""
+
+        done_urls = set(
+            df_old["detail_url"]
+            .dropna()
+            .astype(str)
+            .apply(canonicalize_url)
+            .tolist()
+        )
+
+        print(f" Đã tìm thấy file cũ: {len(done_urls)} link đã crawl")
+        return done_urls
+
+    return set()
+
+
+def append_to_csv(row_dict):
+    df_row = pd.DataFrame([row_dict])
+    file_exists = Path(OUT_CSV).exists()
+    df_row.to_csv(
+        OUT_CSV,
+        mode="a",
+        header=not file_exists,
+        index=False,
+        encoding="utf-8-sig"
+    )
 
 
 def main():
-    df_in = pd.read_csv(INPUT_CSV)
+    if not Path(INPUT_CSV).exists():
+        print(f" Chưa có file {INPUT_CSV}")
+        return
 
-    if "hotel_url" not in df_in.columns:
-        raise ValueError("Input CSV phải có cột 'hotel_url'")
+    df = pd.read_csv(INPUT_CSV)
+    
+    url_col = None
+    for col in df.columns:
+        if len(df) > 0 and "http" in str(df[col].iloc[0]):
+            url_col = col
+            break
+    
+    if not url_col:
+        print("Không tìm thấy cột URL")
+        return
 
-    session = requests.Session()
-    results = []
+    options = Options()
+    options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
 
-    for idx, row in df_in.iterrows():
-        raw_url = str(row["hotel_url"]).strip()
+    print("Đang kết nối Chrome...")
+    try:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    except Exception as e:
+        print(f" Lỗi kết nối Chrome: {e}")
+        return
 
-        if not raw_url.startswith("http"):
-            out = row.to_dict()
-            out.update({"_fetch_status": None, "_parse_status": "invalid_url"})
-            results.append(out)
-            continue
+    done_urls = load_existing_results()
 
-        url = canonicalize_url(raw_url)
-        print(f"[{idx+1}/{len(df_in)}] GET {url}")
 
-        try:
-            status, html = fetch_html(session, url)
-
-            if status in (403, 429) or looks_blocked(html):
-                debug_name = f"blocked_{idx+1}.html"
-                (DEBUG_DIR / debug_name).write_text(html or "", encoding="utf-8", errors="ignore")
-                print(f"  -> BLOCK/VERIFY (status={status}). Saved debug_pages/{debug_name}")
-
-                out = row.to_dict()
-                out.update({
-                    "detail_url": url,
-                    "_fetch_status": status,
-                    "_parse_status": "blocked_or_verify"
-                })
-                results.append(out)
-                time.sleep(random.uniform(SLEEP_MIN, SLEEP_MAX))
+    try:
+        for i, row in df.iterrows():
+            url = str(row[url_col]).strip()
+            url_clean = canonicalize_url(url)
+            if url_clean in done_urls:
+                print(f"[{i+1}/{len(df)}]  Đã có, bỏ qua")
                 continue
 
-            detail = parse_detail(html, url)
 
-            out = row.to_dict()
-            out.update({"_fetch_status": status})
-            out.update(detail)
-            results.append(out)
+            try:
+                driver.get(url_clean)
+                time.sleep(3)
+                
+                try:
+                    about_div = driver.find_element(By.ID, "ABOUT_TAB")
+                    driver.execute_script("arguments[0].scrollIntoView();", about_div)
+                except:
+                    driver.execute_script("window.scrollTo(0, 1000);")
+                
+                time.sleep(2)
+                expand_amenities_and_details(driver)
+                detail = parse_detail(driver, url_clean)
 
-        except Exception as e:
-            print("  -> ERROR:", str(e)[:200])
-            out = row.to_dict()
-            out.update({"detail_url": url, "_fetch_status": None, "_parse_status": f"error:{type(e).__name__}"})
-            results.append(out)
+                full_data = row.to_dict()
+                full_data.update(detail)
+                append_to_csv(full_data)
+                done_urls.add(url_clean)
 
-        time.sleep(random.uniform(SLEEP_MIN, SLEEP_MAX))
 
-    df_out = pd.DataFrame(results)
-    df_out.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
+                print(f"Tên: {detail.get('name_detail')}")
+                print(f"Tiện nghi: {str(detail.get('amenities'))[:60]}...")
+                print(f"Loại phòng: {detail.get('room_types')}")
 
-    with open(OUT_JSONL, "w", encoding="utf-8") as f:
-        for r in results:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            except Exception as e:
+                out = row.to_dict()
+                out["detail_url"] = url_clean
+                append_to_csv(out)
+                done_urls.add(url_clean)
 
-    print(f"\nSaved: {OUT_CSV} and {OUT_JSONL}")
-    print("Debug blocked pages in:", str(DEBUG_DIR.resolve()))
 
+            # Đếm số thứ tự bắt đầu từ 1
+            count = i + 1 
+            
+            # Kiểm tra nếu chia hết cho BATCH_SIZE (30) thì nghỉ dài
+            if count % BATCH_SIZE == 0:
+                print(f"\nĐã cào được {count} link. Đang nghỉ giải lao {LONG_SLEEP_TIME} giây...")
+                time.sleep(LONG_SLEEP_TIME)
+                print("Tiếp tục làm việc...\n")
+            else:
+                # Nghỉ ngắn bình thường
+                time.sleep(random.uniform(SLEEP_MIN, SLEEP_MAX))
+
+    except KeyboardInterrupt:
+        print("\n Dừng bởi người dùng...")
+
+    finally:
+        print("\n Đã lưu từng dòng trực tiếp trong quá trình crawl.")
 
 if __name__ == "__main__":
     main()
