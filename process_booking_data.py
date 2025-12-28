@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import re
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 # --- 1. CẤU HÌNH DATABASE ---
 DB_CONFIG = {
@@ -11,22 +11,46 @@ DB_CONFIG = {
     "host": "localhost",
     "port": "5432"
 }
-
-# Chuỗi kết nối
 DB_CONNECTION_STR = f"postgresql+psycopg2://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}"
-
-# Tạo Engine
 engine = create_engine(DB_CONNECTION_STR)
 
-# --- 2. CẤU HÌNH TỪ KHÓA ---
-ROOM_KEYWORDS = {
-    'Presidential/Suite': ['president', 'tổng thống', 'suite', 'penthouse', 'biệt thự', 'villa'],
-    'Family/Large': ['family', 'gia đình', '3 phòng', '4 phòng', 'nối liền', 'connecting', 'triple', 'quadruple'],
-    'Premium/Luxury': ['premium', 'luxury', 'cao cấp', 'sang trọng', 'business', 'executive'],
-    'Deluxe': ['deluxe', 'thượng hạng', 'grand'],
-    'Apartment/Studio': ['apartment', 'căn hộ', 'studio', 'condo'],
-    'Standard/Superior': ['standard', 'superior', 'tiêu chuẩn', 'phổ thông', 'economy', 'budget', 'classic'],
-    'Dormitory': ['dorm', 'tập thể', 'giường tầng', 'bunk', 'capsule', 'kén'],
+# --- 2. CẤU HÌNH TỪ KHÓA (MAPPING) ---
+
+# Cấu hình từ khóa GIƯỜNG
+BED_MAPPING = {
+    'double': 'Double', 'đôi': 'Double',
+    'king': 'King',
+    'queen': 'Queen',
+    'large': 'Large', 'lớn': 'Large',
+    'single': 'Single', 'đơn': 'Single',
+    'twin': 'Twin',
+    'bunk': 'Bunk', 'tầng': 'Bunk', 'tập thể': 'Bunk',
+    'sofa': 'Sofa',
+    'futon': 'Futon'
+}
+
+# Cấu hình từ khóa PHÒNG
+ROOM_MAPPING = {
+    'president': 'Presidential', 'tổng thống': 'Presidential',
+    'suite': 'Suite',
+    'penthouse': 'Penthouse',
+    'villa': 'Villa', 'biệt thự': 'Villa',
+    'bungalow': 'Bungalow',
+    'family': 'Family', 'gia đình': 'Family',
+    'connecting': 'Connecting',
+    'triple': 'Triple', '3 người': 'Triple',
+    'quadruple': 'Quadruple', '4 người': 'Quadruple',
+    'luxury': 'Luxury',
+    'business': 'Business',
+    'executive': 'Executive',
+    'deluxe': 'Deluxe', 'grand': 'Grand',
+    'apartment': 'Apartment', 'căn hộ': 'Apartment',
+    'studio': 'Studio', 'condo': 'Condo',
+    'standard': 'Standard', 'tiêu chuẩn': 'Standard',
+    'superior': 'Superior',
+    'classic': 'Classic',
+    'economy': 'Economy', 'budget': 'Budget',
+    'dorm': 'Dorm', 'kén': 'Capsule', 'capsule': 'Capsule'
 }
 
 def load_data_from_db(table_name):
@@ -40,6 +64,34 @@ def load_data_from_db(table_name):
         print(f"   -> Lỗi kết nối Database: {e}")
         return None
 
+# --- HÀM PHÂN LOẠI ĐA NHÃN (MULTI-TAG) ---
+def extract_tags(text, mapping_dict):
+    """
+    Tìm tất cả từ khóa xuất hiện và nối chúng bằng dấu '&'
+    """
+    if not text or str(text).lower() in ['nan', 'none', '', 'n/a']:
+        return "Unknown"
+    
+    text_lower = str(text).lower()
+    found_tags = set() # Dùng set để tránh trùng lặp (VD: Double & Double)
+
+    for keyword, tag_name in mapping_dict.items():
+        # Kiểm tra từ khóa có nằm trong text không
+        if keyword in text_lower:
+            found_tags.add(tag_name)
+    
+    if not found_tags:
+        # Fallback nhẹ
+        if 'bed' in mapping_dict.values(): # Đang check giường
+             return "Other"
+        else: # Đang check phòng
+             if 'phòng' in text_lower or 'room' in text_lower:
+                 return "Standard"
+             return "Other"
+
+    # Sắp xếp và nối bằng dấu &
+    return " & ".join(sorted(list(found_tags)))
+
 def clean_and_save_data(df, output_table_name):
     if df is None or df.empty:
         print("DataFrame rỗng, dừng xử lý.")
@@ -52,6 +104,7 @@ def clean_and_save_data(df, output_table_name):
         "search_location": "Search Location",
         "scenario": "Scenario",   
         "hotel_name": "Hotel Name",
+        "hotel_link": "Hotel Link",
         "stars": "Stars",
         "address": "Address",
         "room_type": "Room Type",
@@ -74,7 +127,7 @@ def clean_and_save_data(df, output_table_name):
     df = df.rename(columns=actual_rename_map)
 
     # --- BƯỚC B: CHUẨN HÓA TEXT ---
-    str_cols = ['Hotel Name', 'Address', 'Room Type', 'Bed Type', 'Distance', 'Badge Deal', 'Search Location']
+    str_cols = ['Hotel Name', 'Hotel Link', 'Address', 'Room Type', 'Bed Type', 'Distance', 'Badge Deal', 'Search Location']
     for col in str_cols:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip().str.replace(r'\s+', ' ', regex=True)
@@ -88,40 +141,21 @@ def clean_and_save_data(df, output_table_name):
     # 2. XỬ LÝ ĐỊA CHỈ
     def extract_district_custom(row):
         addr = str(row.get('Address', '')).lower()
-        
-        # 1. Kiểm tra đơn vị hành chính chuẩn
         regex_admin = r'(quận\s+\d+|quận\s+[a-zà-ỹ]+|district\s+\d+|tp\.\s+[a-zà-ỹ]+|thành\s+phố\s+[a-zà-ỹ]+|thị\s+xã\s+[a-zà-ỹ]+|huyện\s+[a-zà-ỹ]+|phường\s+\d+|phường\s+[a-zà-ỹ]+)'
         match = re.search(regex_admin, addr)
-        
-        if match:
-            return match.group(0).title()
-        
-        # 2. Kiểm tra từ khóa địa danh cụ thể
+        if match: return match.group(0).title()
         if 'vũng tàu' in addr or 'vung tau' in addr: return "TP. Vũng Tàu"
         if 'bình dương' in addr or 'binh duong' in addr: return "Bình Dương"
         if 'đà lạt' in addr or 'da lat' in addr: return "TP. Đà Lạt"
         if 'hồ chí minh' in addr or 'tphcm' in addr: return "TP. Hồ Chí Minh"
-
-        # 3. Fallback: Lấy Search Location
         search_loc = str(row.get('Search Location', '')).title()
-        if search_loc and search_loc not in ['Nan', 'None', '', 'N/A']:
-             return search_loc
-
-        # 4. Fallback cuối cùng
+        if search_loc and search_loc not in ['Nan', 'None', '', 'N/A']: return search_loc
         return "Other"
-
     df['District'] = df.apply(extract_district_custom, axis=1)
 
-    # 3. Bed Class
-    def classify_bed(bed_text):
-        if not bed_text: return "Unknown"
-        t = str(bed_text).lower()
-        if any(x in t for x in ['đôi', 'double', 'king', 'queen', 'lớn', 'large']): return "Double/Large"
-        if any(x in t for x in ['đơn', 'single', 'twin']): return "Single/Twin"
-        if any(x in t for x in ['tầng', 'bunk']): return "Bunk"
-        if any(x in t for x in ['sofa', 'futon']): return "Sofa Bed"
-        return "Other"
-    df['Bed_Class'] = df['Bed Type'].apply(classify_bed)
+    # 3. BED CLASS 
+    print("   -> Đang phân loại Giường (dùng dấu &)...")
+    df['Bed_Class'] = df['Bed Type'].apply(lambda x: extract_tags(x, BED_MAPPING))
 
     # 4. Booleans
     def to_bool(val):
@@ -143,10 +177,8 @@ def clean_and_save_data(df, output_table_name):
     # 6. Scores
     def clean_score(value):
         if pd.isna(value) or str(value).strip() in ['N/A', 'None', '', 'nan']: return np.nan
-        try:
-            return float(str(value).replace(',', '.'))
-        except:
-            return np.nan
+        try: return float(str(value).replace(',', '.'))
+        except: return np.nan
     df['Rating_Clean'] = df['Rating Score'].apply(clean_score)
     df['Location_Clean'] = df['Location Score'].apply(clean_score)
 
@@ -163,16 +195,9 @@ def clean_and_save_data(df, output_table_name):
         return np.nan
     df['Distance_KM'] = df['Distance'].apply(extract_distance_km)
 
-    # 8. Room Class
-    def classify_room(room_name):
-        if not room_name: return 'Unknown'
-        name_lower = str(room_name).lower()
-        for category, keywords in ROOM_KEYWORDS.items():
-            for kw in keywords:
-                if kw in name_lower: return category
-        if 'phòng' in name_lower or 'room' in name_lower: return 'Standard/Superior'
-        return 'Other' 
-    df['Room_Class'] = df['Room Type'].apply(classify_room)
+    # 8. ROOM CLASS 
+    print("   -> Đang phân loại Phòng (dùng dấu &)...")
+    df['Room_Class'] = df['Room Type'].apply(lambda x: extract_tags(x, ROOM_MAPPING))
 
     # 9. Prices & Discount
     df['Final Price'] = pd.to_numeric(df['Final Price'], errors='coerce').fillna(0)
@@ -196,7 +221,8 @@ def clean_and_save_data(df, output_table_name):
 
     # --- BƯỚC E: CHỌN CỘT ---
     cols_order = [
-        'Scenario', 'Search Location', 'Hotel Name', 'Stars_Clean', 'District', 'Address',
+        'Scenario', 'Search Location', 'Hotel Name', 'Hotel Link',
+        'Stars_Clean', 'District', 'Address',
         'Room_Class', 'Room Type', 'Bed_Class', 'Bed Type', 'Rooms',
         'Final Price', 'Original Price', 'Discount %',
         'Rating_Clean', 'Review Count', 'Location_Clean', 'Distance_KM',
@@ -217,11 +243,11 @@ def clean_and_save_data(df, output_table_name):
         df_clean = df_clean[~mask_other]
         print(f"      - Đã xóa {deleted_count} dòng có dữ liệu không xác định (Other).")
 
-   # --- BƯỚC G: LƯU VÀO DATABASE (LỌC TRÙNG 2 LỚP) ---
+    # --- BƯỚC G: LƯU VÀO DATABASE ---
     print("   -> Đang xóa trùng lặp nâng cao (2 LỚP)...")
     
-    # 1. LỚP LỌC 1: Loại trừ Scenario, Check-in, Total_Guests...
-    ignore_cols = ['Scenario', 'Adults', 'Children', 'Rooms', 'Total_Guests', 'Check-in']
+    # 1. LỚP LỌC 1:
+    ignore_cols = ['Scenario', 'Adults', 'Children', 'Rooms', 'Total_Guests', 'Check-in', 'Hotel Link']
     subset_cols_1 = [c for c in df_clean.columns if c not in ignore_cols]
     
     len_0 = len(df_clean)
@@ -230,35 +256,55 @@ def clean_and_save_data(df, output_table_name):
     len_1 = len(df_clean)
     print(f"      - Lớp 1 (Cơ bản): Đã xóa {len_0 - len_1} dòng.")
 
-    # 2. LỚP LỌC 2 : Logic ép buộc "Cùng Tên + Cùng Giá + Cùng Loại Phòng = Xóa"
+    # 2. LỚP LỌC 2:
     strict_subset = ['Hotel Name', 'Room Type', 'Final Price', 'Address']
-    
-    # Chỉ check nếu các cột này tồn tại
     valid_strict_subset = [c for c in strict_subset if c in df_clean.columns]
     
     if valid_strict_subset:
-        # Sort trước để giữ lại dòng tốt nhất (VD: dòng có Review Count cao nhất hoặc đầy đủ thông tin nhất)
         if 'Rating_Clean' in df_clean.columns:
              df_clean = df_clean.sort_values(by=['Hotel Name', 'Final Price', 'Rating_Clean'], ascending=[True, True, False])
-        
         df_clean = df_clean.drop_duplicates(subset=valid_strict_subset, keep='first')
         
     len_2 = len(df_clean)
-    print(f"      - Lớp 2 (Mạnh tay): Đã xóa thêm {len_1 - len_2} dòng (Trùng Tên + Loại Phòng + Giá).")
+    print(f"      - Lớp 2 (Mạnh tay): Đã xóa thêm {len_1 - len_2} dòng.")
 
     print("3. Đang chuẩn bị lưu vào Postgres...")
+    
+    # 1. Reset index
+    df_clean = df_clean.reset_index(drop=True)
+    df_clean.index = df_clean.index + 1  
+    df_clean['id'] = df_clean.index      
+    
+    # 2. Chuẩn hóa tên cột
     df_clean.columns = [c.strip().lower().replace(' ', '_').replace('-', '_').replace('%', 'percent') for c in df_clean.columns]
     
     try:
+        # === DROP TABLE room_details NẾU CÓ ===
+        with engine.connect() as conn:
+            print("   -> Đang kiểm tra và xóa bảng 'room_details' cũ (nếu có)...")
+            conn.execute(text("DROP TABLE IF EXISTS room_details CASCADE;"))
+            conn.commit()
+            print("      - Đã thực hiện lệnh: DROP TABLE IF EXISTS room_details")
+        # ======================================================
+
+        # 3. Lưu bảng
         df_clean.to_sql(output_table_name, engine, if_exists='replace', index=False)
+        
+        # 4. SET PRIMARY KEY
+        with engine.connect() as conn:
+            conn.execute(text(f"ALTER TABLE {output_table_name} ADD PRIMARY KEY (id);"))
+            conn.commit()
+            
         print(f"HOÀN TẤT! Đã lưu {len(df_clean)} dòng sạch vào bảng '{output_table_name}'.")
+        print("      - Đã tạo cột 'id' và thiết lập PRIMARY KEY thành công.")
+        
     except Exception as e:
         print(f"Lỗi khi lưu vào Database: {e}")
 
 # --- CHẠY CHƯƠNG TRÌNH ---
 if __name__ == "__main__":
     RAW_TABLE = "hotel_scenarios"
-    CLEAN_TABLE = "hotel_data_cleaned"
+    CLEAN_TABLE = "hotel_data_cleaned" 
     
     df_raw = load_data_from_db(RAW_TABLE)
     clean_and_save_data(df_raw, CLEAN_TABLE)
