@@ -2,8 +2,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import re
-
+# Đọc dữ liệu đã làm sạch
 df = pd.read_csv("hotels_detail_output_clean.csv")
+
 # Làm sạch giá phòng
 def extract_price(price):
     try:
@@ -16,6 +17,7 @@ def extract_price(price):
 
 df["price_num"] = df["priceRange"].apply(extract_price)
 
+# Ép kiểu dữ liệu từ string sang số nguyên
 df["ratingValue"] = pd.to_numeric(df["ratingValue"], errors="coerce")
 df["reviewCount"] = pd.to_numeric(df["reviewCount"], errors="coerce")
 
@@ -34,7 +36,7 @@ def classify_room(room):
 
 df["room_class"] = df["room_types"].apply(classify_room)
 
-# VISUAL 1: Phân bố hạng phòng
+# Phân bố hạng phòng
 class_count = df["room_class"].value_counts()
 
 plt.figure()
@@ -44,7 +46,7 @@ plt.xlabel("Hạng phòng")
 plt.ylabel("Số lượng")
 plt.show()
 
-# VISUAL 2: Giá trung bình theo hạng
+# Giá trung bình theo hạng
 avg_price = df.groupby("room_class")["price_num"].mean()
 
 plt.figure()
@@ -54,7 +56,7 @@ plt.xlabel("Hạng phòng")
 plt.ylabel("Giá trung bình (VND)")
 plt.show()
 
-# VISUAL 3: Rating theo hạng
+# Rating theo hạng
 avg_rating = df.groupby("room_class")["ratingValue"].mean()
 
 plt.figure()
@@ -65,7 +67,7 @@ plt.ylabel("Rating")
 plt.show()
 
 
-# VISUAL 4: Giá vs Review
+# Giá vs Review
 plt.figure()
 for c in df["room_class"].unique():
     sub = df[df["room_class"] == c]
@@ -78,7 +80,7 @@ plt.legend()
 plt.show()
 
 
-# VISUAL 5: Tiện nghi trung bình
+# Tiện nghi trung bình
 df["amenity_count"] = df["amenities"].fillna("").apply(lambda x: len(str(x).split(",")))
 amenity_avg = df.groupby("room_class")["amenity_count"].mean()
 
