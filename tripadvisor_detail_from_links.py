@@ -23,7 +23,7 @@ SLEEP_MAX = 8
 
 # Cấu hình nghỉ giải lao
 BATCH_SIZE = 30       # Cứ sau 30 link thì nghỉ
-LONG_SLEEP_TIME = 30  # Thời gian nghỉ (giây)
+LONG_SLEEP_TIME = 60  # Thời gian nghỉ (giây)
 
 
 def canonicalize_url(url: str) -> str:
