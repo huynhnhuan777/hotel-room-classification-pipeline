@@ -1,0 +1,40 @@
+# Cookies và storage
+*.pkl
+*_localstorage.json
+*_sessionstorage.json
+
+# Dữ liệu
+*.jsonl
+*.csv
+*_backup.jsonl
+
+# Tracking
+seen_requests.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+
+
+
+
