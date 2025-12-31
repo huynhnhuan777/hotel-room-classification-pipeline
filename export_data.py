@@ -16,7 +16,7 @@ DB_CONNECTION_STR = f"postgresql+psycopg2://{DB_CONFIG['user']}:{DB_CONFIG['pass
 engine = create_engine(DB_CONNECTION_STR)
 OUTPUT_FOLDER = "exports"
 
-# --- DANH SÁCH CỘT MONG MUỐN XUẤT RA CSV (Đúng theo biến cols_order của bạn) ---
+# --- DANH SÁCH CỘT MONG MUỐN XUẤT RA CSV ---
 COLS_ORDER_EXPORT = [
     'Scenario', 'Search Location', 'Hotel Name', 'Hotel Link',
     'Stars_Clean', 'District', 'Address',
@@ -25,7 +25,7 @@ COLS_ORDER_EXPORT = [
     'Rating_Clean', 'Review Count', 'Location_Clean', 'Distance_KM',
     'Free_Cancel_Bool', 'Breakfast_Bool', 'Badge_Clean',
     'Adults', 'Children', 'Total_Guests', 'Check-in',
-    'Area_m2', 'Facilities' # bảng room_details
+    'Area_m2_cleaned', 'Facilities_cleaned' # bảng room_details_cleaned
 ]
 
 # --- MAPPING: TÊN CỘT DB (snake_case) -> TÊN CỘT CSV (Title Case) ---
@@ -57,8 +57,8 @@ COLUMN_MAPPING = {
     'total_guests': 'Total_Guests',
     'check_in': 'Check-in',
     # Cột từ bảng phụ room_details
-    'area_m2': 'Area_m2',
-    'facilities': 'Facilities'
+    'area_m2_cleaned': 'Area_m2_cleaned',
+    'facilities_cleaned': 'Facilities_cleaned'
 }
 
 def export_all_data():
@@ -102,10 +102,10 @@ def export_all_data():
         T1.children,
         T1.total_guests,
         T1.check_in,
-        T2.area_m2,            
-        T2.facilities          
+        T2.area_m2_cleaned,            
+        T2.facilities_cleaned          
     FROM hotel_data_cleaned T1
-    LEFT JOIN room_details T2 ON T1.id = T2.hotel_id
+    LEFT JOIN room_details_cleaned T2 ON T1.id = T2.hotel_id
     ORDER BY T1.id ASC
     """
     
@@ -119,7 +119,7 @@ def export_all_data():
         print(f"-> Đã tải {len(df_merged)} dòng dữ liệu từ DB.")
 
         # ========================================================
-        # [MỚI] XỬ LÝ NULL/NAN -> 0
+        # XỬ LÝ NULL/NAN -> 0
         # ========================================================
         # 1. Rating: Điền 0 nếu null
         df_merged['rating_clean'] = df_merged['rating_clean'].fillna(0)
@@ -184,8 +184,8 @@ def export_all_data():
             }
 
             for j, row in group_data.iterrows():
-                # Xử lý tiện ích (lấy từ facilities hoặc badge_deal)
-                amenities_final = row.get('facilities') if pd.notna(row.get('facilities')) else row.get('badge_clean')
+                # Xử lý tiện ích (lấy từ facilities)
+                amenities_final = row.get('facilities_cleaned') if pd.notna(row.get('facilities_cleaned')) else row.get('badge_clean')
                 
                 # Xử lý hiển thị phần trăm giảm giá
                 disc_val = row.get('discount_percent')
@@ -197,7 +197,7 @@ def export_all_data():
                         "type": row.get('room_type'),
                         "class": row.get('room_class'),
                         "bed": row.get('bed_type'),
-                        "area_m2": row.get('area_m2'),
+                        "area_m2_cleaned": row.get('area_m2_cleaned'),
                         "amenities": amenities_final
                     },
                     "occupancy": {
