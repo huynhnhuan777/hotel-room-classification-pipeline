@@ -20,7 +20,7 @@ TARGET_TABLE = "room_details"
 # --- CẤU HÌNH CÁC KHOẢNG ID MUỐN CHẠY ---
 # Định dạng: (Từ ID, Đến ID)
 ID_RANGES = [
-    (7292, 8335)
+    (2114, 8421)
 ]
 
 async def scrape_detail_by_link(page, url, target_room_type):
@@ -192,6 +192,25 @@ async def scrape_detail_by_link(page, url, target_room_type):
 
 async def main():
     engine = create_engine(DB_CONNECTION_STR)
+
+    print(f"-> Đang kiểm tra bảng '{TARGET_TABLE}'...")
+    try:
+        with engine.begin() as conn:
+            # Tạo bảng với khóa chính là hotel_id (vì logic insert/update dựa trên ID này)
+            create_table_sql = text(f"""
+                CREATE TABLE IF NOT EXISTS {TARGET_TABLE} (
+                    hotel_id INTEGER PRIMARY KEY,
+                    area_m2 TEXT,
+                    facilities TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.execute(create_table_sql)
+            print(f"-> Bảng '{TARGET_TABLE}' đã sẵn sàng.")
+    except Exception as e:
+        print(f"!!! Lỗi khi tạo bảng: {e}")
+        return
     
     async with async_playwright() as p:
         print(" KHỞI ĐỘNG BROWSER...")

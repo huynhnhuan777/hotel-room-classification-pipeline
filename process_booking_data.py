@@ -141,7 +141,11 @@ def clean_and_save_data(df, output_table_name):
     # 2. XỬ LÝ ĐỊA CHỈ
     def extract_district_custom(row):
         addr = str(row.get('Address', '')).lower()
-        regex_admin = r'(quận\s+\d+|quận\s+[a-zà-ỹ]+|district\s+\d+|tp\.\s+[a-zà-ỹ]+|thành\s+phố\s+[a-zà-ỹ]+|thị\s+xã\s+[a-zà-ỹ]+|huyện\s+[a-zà-ỹ]+|phường\s+\d+|phường\s+[a-zà-ỹ]+)'
+    
+        name_pattern = r'[a-zà-ỹ]+(?:\s+[a-zà-ỹ]+)*'
+        
+        regex_admin = rf'(quận\s+\d+|quận\s+{name_pattern}|district\s+\d+|tp\.\s+{name_pattern}|thành\s+phố\s+{name_pattern}|thị\s+xã\s+{name_pattern}|huyện\s+{name_pattern}|phường\s+\d+|phường\s+{name_pattern})'
+        
         match = re.search(regex_admin, addr)
         if match: return match.group(0).title()
         if 'vũng tàu' in addr or 'vung tau' in addr: return "TP. Vũng Tàu"
