@@ -36,7 +36,7 @@ def clean_facilities(value):
     - Sắp xếp lại cho gọn
     """
     if not value or pd.isna(value) or str(value).strip() == "N/A":
-        return None # Hoặc trả về "" tùy nhu cầu
+        return None 
     
     # Tách chuỗi bằng dấu phẩy
     items = str(value).split(',')
