@@ -58,7 +58,6 @@ def auto_scroll(page):
         last = cur
 
 #  CSV + STATE 
-
 def load_seen_urls():
     if not os.path.exists(OUT_CSV):
         return set()
@@ -82,7 +81,6 @@ def save_state(p):
     json.dump({"next_page": p}, open(STATE_FILE, "w"), indent=2)
 
 # TRÍCH XUẤT 
-
 def extract_hotels(page, seen):
     rows = []
     links = page.locator("a[href*='/Hotel_Review-'][href*='-Reviews-']")

@@ -1,4 +1,3 @@
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import re
@@ -7,13 +6,14 @@ df = pd.read_csv("hotels_detail_output_clean.csv")
 
 # Làm sạch giá phòng
 def extract_price(price):
-    try:
-        nums = re.findall(r"\d+", str(price).replace(".", ""))
-        if nums:
-            return int(nums[0])
-    except:
+    if pd.isna(price):
         return None
-    return None
+    s = str(price).replace(".", "")
+    nums = re.findall(r"\d+", s)
+    if len(nums) == 0:
+        return None
+    nums = list(map(int, nums))
+    return sum(nums) / len(nums)   # lấy trung bình nếu là khoảng giá
 
 df["price_num"] = df["priceRange"].apply(extract_price)
 

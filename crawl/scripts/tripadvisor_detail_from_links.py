@@ -26,6 +26,7 @@ BATCH_SIZE = 30       # Cứ sau 30 link thì nghỉ
 LONG_SLEEP_TIME = 60  # Thời gian nghỉ (giây)
 
 
+# Chuẩn hóa URL
 def canonicalize_url(url: str) -> str:
     if not url: return ""
     try:
@@ -38,6 +39,7 @@ def clean_price(price_str):
     if not price_str: return None
     return re.sub(r'\(.*?\)', '', str(price_str)).strip()
 
+# tiện nghi và chi tiết phòng
 def expand_amenities_and_details(driver):
     try:
         buttons = driver.find_elements(By.XPATH, "//div[contains(@id, 'ABOUT_TAB')]//div[contains(text(), 'Hiển thị thêm') or contains(text(), 'Show more')]")
@@ -52,6 +54,7 @@ def expand_amenities_and_details(driver):
     except:
         pass
 
+# Trích xuất tiện nghi từ trang
 def extract_amenities_from_page(driver, soup):
     amenities = set()
     try:
@@ -75,6 +78,7 @@ def extract_amenities_from_page(driver, soup):
     clean_list = [a for a in amenities if "Hiển thị" not in a and "đánh giá" not in a]
     return ", ".join(sorted(clean_list))
 
+# Trích xuất loại phòng từ trang 
 def extract_room_types_safe(soup):
     room_types = set()
     about_section = soup.select_one("#ABOUT_TAB")
@@ -93,7 +97,7 @@ def extract_room_types_safe(soup):
                 if match:
                     room_types.add(match.group(0))
     return ", ".join(sorted(list(room_types)))
-
+# Trích xuất dữ liệu JSON-LD loại khách sạn
 def extract_jsonld_hotel(soup):
     for s in soup.select('script[type="application/ld+json"]'):
         try:
@@ -154,6 +158,8 @@ def parse_detail(driver, url):
             pass
 
     return out
+
+# Load kết quả đã có
 def load_existing_results():
     if Path(OUT_CSV).exists():
         df_old = pd.read_csv(OUT_CSV)
@@ -174,7 +180,7 @@ def load_existing_results():
 
     return set()
 
-
+# Lưu từng dòng vào CSV
 def append_to_csv(row_dict):
     df_row = pd.DataFrame([row_dict])
     file_exists = Path(OUT_CSV).exists()
