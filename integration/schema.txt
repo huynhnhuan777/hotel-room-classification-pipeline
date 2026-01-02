@@ -1,0 +1,16 @@
+schema_columns = [
+    "room_id",
+    "hotel_name",
+    "city",
+    "room_name",
+    "price",
+    "currency",
+    "area_m2",
+    "bed_type",
+    "max_occupancy",
+    "view",
+    "amenities",
+    "room_type_label",
+    "source",
+    "crawl_date"
+]
