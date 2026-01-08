@@ -3,7 +3,7 @@ import re
 import numpy as np
 
 # Đọc file
-df = pd.read_csv("./preprocessing/merged_all_data.csv")
+df = pd.read_csv("./mergedata/merged_all_data.csv")
 
 #  Chuẩn hoá tên cột
 df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
@@ -43,7 +43,7 @@ keep_cols = [
     "final_price", "facilities_cleaned"
 ]
 
-# Tạo cột nếu chưa có (để không bị lỗi key error), nhưng để giá trị NaN
+# Tạo cột nếu chưa có  nhưng để giá trị NaN
 for col in keep_cols:
     if col not in df.columns:
         df[col] = np.nan
@@ -51,8 +51,7 @@ for col in keep_cols:
 df = df[keep_cols]
 
 # Làm sạch dữ liệu
-
-# Xử lý Area (Diện tích) 
+# Xử lý Area 
 def clean_area(val):
     if pd.isna(val): return np.nan
     # Thay dấu phẩy thành chấm (cho trường hợp 25,5m2)
@@ -66,10 +65,10 @@ df["area_m2"] = df["area_m2"].apply(clean_area)
 df["max_people"] = pd.to_numeric(df["max_people"], errors="coerce")
 
 # Xử lý Final Price 
-# Xóa hết ký tự lạ, chỉ giữ số. An toàn tuyệt đối cho mọi format (1.200.000 hay 1,200,000)
+# Xóa hết ký tự lạ, chỉ giữ số (1.200.000 hay 1,200,000)
 def clean_price(val):
     if pd.isna(val): return np.nan
-    # Xóa tất cả cái gì không phải số
+    # Xóa nhứng cái không phải số
     clean_str = re.sub(r'[^\d]', '', str(val))
     try:
         return float(clean_str)
@@ -86,6 +85,37 @@ df["facilities_cleaned"] = (
     .str.replace(r"[^a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ0-9, ]",
                  "", regex=True)
 )
+# Hàm suy ra bed_class từ bed_desc
+def infer_bed_class(desc):
+    if pd.isna(desc) or str(desc).strip() == "":
+        return "unknown"
+
+    text = str(desc).lower()
+
+    if re.search(r"bunk|family|3 giường|4 giường|nhiều", text):
+        return "family"
+
+    if "king" in text:
+        return "king"
+
+    if "queen" in text:
+        return "queen"
+
+    if re.search(r"2 giường đơn|hai giường đơn|twin", text):
+        return "twin"
+
+    if re.search(r"giường đôi|double", text):
+        return "double"
+
+    if re.search(r"giường đơn|single", text):
+        return "single"
+
+    return "unknown"
+# Tạo mask các ô bị thiếu
+mask = df["bed_class"].isna() | (df["bed_class"].astype(str).str.strip() == "")
+df.loc[mask, "bed_class"] = df.loc[mask, "bed_desc"].apply(infer_bed_class)
+
+
 
 # XÓA DÒNG THIẾU 
 # Xóa nếu thiếu Tên phòng, Giá, Diện tích hoặc Số người
@@ -97,7 +127,6 @@ df = df.dropna(subset=cols_to_check)
 df = df[df["final_price"] > 0]
 df = df.reset_index(drop=True)
 
-# In thông báo
 print(f"Đã xóa {original_len - len(df)} dòng thiếu dữ liệu.")
 print(f"Số dòng còn lại: {len(df)}")
 
