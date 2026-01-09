@@ -491,8 +491,8 @@ async def main():
     async with async_playwright() as p:
         print(" KHỞI ĐỘNG TRÌNH DUYỆT...")
         
-        tomorrow = datetime.now() + timedelta(days=3)
-        next_day = tomorrow + timedelta(days=3)
+        tomorrow = datetime.now() + timedelta(days=5)
+        next_day = tomorrow + timedelta(days=5)
         c_in = tomorrow.strftime("%Y-%m-%d")
         c_out = next_day.strftime("%Y-%m-%d")
         

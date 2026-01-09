@@ -14,20 +14,20 @@ DB_CONFIG = {
 DB_CONNECTION_STR = f"postgresql+psycopg2://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}"
 
 # --- TÊN BẢNG ---
-SOURCE_TABLE = "hotel_data_cleaned" 
+SOURCE_TABLE = "hotel_scenarios" 
 TARGET_TABLE = "room_details"  
 
 # --- CẤU HÌNH CÁC KHOẢNG ID MUỐN CHẠY ---
 # Định dạng: (Từ ID, Đến ID)
 ID_RANGES = [
-    (2114, 8421)
+    (20669, 38650)
 ]
 
 async def scrape_detail_by_link(page, url, target_room_type):
     print(f"   -> Truy cập: {url[:60]}...")
     try:
         await page.route("**/*.{png,jpg,jpeg,gif,webp,svg}", lambda route: route.abort())
-        await page.goto(url, timeout=60000, wait_until="domcontentloaded")
+        await page.goto(url, timeout=6000, wait_until="domcontentloaded")
         
         try:
             await page.wait_for_selector("#hprt-table", timeout=5000)
@@ -305,7 +305,6 @@ async def main():
                             "facs": facilities
                         })
                         print("      -> [INSERT] Đã thêm mới.")
-                        
             except Exception as e:
                 print(f"      ! Lỗi DB Action: {e}")
 
