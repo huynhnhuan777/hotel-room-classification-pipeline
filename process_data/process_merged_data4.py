@@ -22,7 +22,7 @@ def remove_outliers_strict(df, col_to_clean, group_col=None, method='iqr', stric
     
     # Cấu hình độ gắt
     if method == 'iqr':
-        multiplier = 0.8 if strictness == 'high' else 1.5 
+        multiplier = 3 if strictness == 'high' else 5
     elif method == 'percentile':
         # Cắt bỏ 5% thấp nhất và 5% cao nhất (giữ lại 5-95)
         lower_p, upper_p = (0.05, 0.95) if strictness == 'high' else (0.01, 0.99)
@@ -77,7 +77,7 @@ def remove_outliers_strict(df, col_to_clean, group_col=None, method='iqr', stric
 # 2. TẢI VÀ LÀM SẠCH DỮ LIỆU
 # =========================================
 try:
-    df = pd.read_csv('merged_data_cleaned_updated1.csv')
+    df = pd.read_csv('../data/merged_data_cleaned_updated1.csv')
     original_cols = df.columns.tolist()
 except FileNotFoundError:
     print("Lỗi: Không tìm thấy file.")
@@ -207,5 +207,5 @@ plt.tight_layout()
 plt.show()
 
 # Lưu file
-df_balanced.to_csv('balanced_data.csv', index=False, encoding='utf-8-sig')
+df_balanced.to_csv('../data/balanced_data.csv', index=False, encoding='utf-8-sig')
 print("Đã lưu file: balanced_data.csv")
