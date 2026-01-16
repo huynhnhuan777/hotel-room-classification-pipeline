@@ -15,7 +15,7 @@ DB_CONNECTION_STR = f"postgresql+psycopg2://{DB_CONFIG['user']}:{DB_CONFIG['pass
 # --- 2. CẤU HÌNH ---
 TABLE_HOTEL = "hotel_scenarios"
 TABLE_ROOM = "room_details"
-OUTPUT_FILE = "data/merged_data_from_sql.csv"
+OUTPUT_FILE = "data_booking.com/merged_data_from_sql.csv"
 
 # Danh sách cột mong muốn xuất ra CSV
 COLS_ORDER_EXPORT = [
@@ -94,7 +94,6 @@ def export_joined_data():
         )
 
         # 3. Đổi tên cột (Mapping từ tên trong DB -> Tên trong CSV)
-        # Lưu ý: 'area_m2' và 'facilities' bây giờ là chữ thường
         rename_map = {
             'scenario': 'Scenario',
             'search_location': 'Search Location',

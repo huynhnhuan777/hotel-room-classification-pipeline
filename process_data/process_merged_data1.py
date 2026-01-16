@@ -20,15 +20,27 @@ TARGET_COLUMNS = [
 ]
 
 def standardize_room_type(room_type):
-    if pd.isna(room_type) or str(room_type).strip() == "": return 'Unknown'
+    # Nếu là NaN hoặc chuỗi rỗng, trả về 'Standard'
+    if pd.isna(room_type) or str(room_type).strip() == "": 
+        return 'Standard'
+    
     text = str(room_type).strip().lower()
-    if any(x in text for x in ['villa', 'bungalow', 'biệt thự', 'luxury', 'vip', 'royal', 'president']): return 'Luxury'
-    if any(x in text for x in ['suite', 'penthouse', 'apartment', 'căn hộ', 'studio']): return 'Suite'
-    if any(x in text for x in ['executive', 'doanh nhân']): return 'Executive'
-    if any(x in text for x in ['deluxe', 'cao cấp']): return 'Deluxe'
-    if 'superior' in text: return 'Superior'
-    if any(x in text for x in ['standard', 'tiêu chuẩn', 'dorm', 'tập thể', 'family', 'economy', 'budget']): return 'Standard'
-    return 'Unknown'
+    
+    if any(x in text for x in ['villa', 'bungalow', 'biệt thự', 'luxury', 'vip', 'royal', 'president']): 
+        return 'Luxury'
+    if any(x in text for x in ['suite', 'penthouse', 'apartment', 'căn hộ', 'studio']): 
+        return 'Suite'
+    if any(x in text for x in ['executive', 'doanh nhân']): 
+        return 'Executive'
+    if any(x in text for x in ['deluxe', 'cao cấp']): 
+        return 'Deluxe'
+    if 'superior' in text: 
+        return 'Superior'
+    if any(x in text for x in ['standard', 'tiêu chuẩn', 'dorm', 'tập thể', 'family', 'economy', 'budget']): 
+        return 'Standard'
+    
+    # Mọi trường hợp còn lại không khớp từ khóa cũng trả về 'Standard'
+    return 'Standard'
 
 def standardize_bed_type(bed_type):
     if pd.isna(bed_type): return 'Unknown'

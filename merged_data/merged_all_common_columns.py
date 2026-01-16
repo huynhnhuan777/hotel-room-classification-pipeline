@@ -21,9 +21,9 @@ def main():
     try:
         # 2. Đọc các bảng từ Database
         print("-> Đang tải dữ liệu từ Database...")
-        df1 = pd.read_sql_table("clean_booking", engine)
-        df2 = pd.read_sql_table("clean_ivivu", engine)
-        df3 = pd.read_sql_table("clean_mytour", engine)
+        df1 = pd.read_sql_table("clean_booking_balanced", engine)
+        df2 = pd.read_sql_table("clean_ivivu_balanced", engine)
+        df3 = pd.read_sql_table("clean_mytour_balanced", engine)
 
         # 3. Gộp các DataFrame
         df_final = pd.concat([df1, df2, df3], axis=0, ignore_index=True)

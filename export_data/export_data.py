@@ -14,7 +14,7 @@ DB_CONFIG = {
 DB_CONNECTION_STR = f"postgresql+psycopg2://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}"
 
 engine = create_engine(DB_CONNECTION_STR)
-OUTPUT_FOLDER = "data"
+OUTPUT_FOLDER = "data_booking.com"
 
 # --- DANH SÁCH CỘT MONG MUỐN XUẤT RA CSV ---
 COLS_ORDER_EXPORT = [
