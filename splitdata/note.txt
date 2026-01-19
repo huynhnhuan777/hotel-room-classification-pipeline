@@ -1,0 +1,45 @@
+Tổng số mẫu: 12136
+Phân bố nhãn room_class:
+room_class
+0    2063
+4    2060
+1    2040
+5    2037
+3    2034
+2    1902
+Name: count, dtype: int64
+
+--- KẾT QUẢ CHIA TẬP ---
+Train: (8495, 23)
+Validation: (1820, 23)
+Test: (1821, 23)
+
+Phân bố nhãn Train:
+room_class
+0    0.169982
+4    0.169747
+1    0.168099
+5    0.167863
+3    0.167628
+2    0.156680
+Name: proportion, dtype: float64
+
+Phân bố nhãn Validation:
+room_class
+4    0.169780
+0    0.169780
+1    0.168132
+3    0.167582
+5    0.167582
+2    0.157143
+Name: proportion, dtype: float64
+
+Phân bố nhãn Test:
+room_class
+0    0.170236
+4    0.169687
+5    0.168040
+1    0.168040
+3    0.167490
+2    0.156507
+Name: proportion, dtype: float64
