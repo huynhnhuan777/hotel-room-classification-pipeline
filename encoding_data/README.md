@@ -29,5 +29,5 @@ Output:
 Chạy lệnh sau trong terminal:
    python encoding.py
 
-## Kết quả cuối cùng 
+## Kết quả cuối cùng
 Sau khi hoàn thành Module này, tập dữ liệu hoàn toàn là số (All-Numeric Data) phục vụ cho các bước sau.

@@ -21,7 +21,7 @@ DB_CONFIG = {
 DB_CONNECTION_STR = f"postgresql+psycopg2://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}"
 
 # --- CẤU HÌNH SCRAPING ---
-TABLE_NAME = "hotel_scenarios" 
+TABLE_NAME = "hotel_scenarios_test" 
 BASE_URL = "https://www.booking.com/searchresults.vi.html"
 LOCATIONS = {
     "Ho Chi Minh": "Thành+phố+Hồ+Chí+Minh",
@@ -105,7 +105,7 @@ def generate_random_config():
     }
 
 # Tạo danh sách 20 kịch bản ngẫu nhiên
-RANDOM_CONFIGS = [generate_random_config() for _ in range(20)]
+RANDOM_CONFIGS = [generate_random_config() for _ in range(1)]
 
 # In ra kiểm tra
 import json
@@ -124,7 +124,7 @@ async def scrape_detailed_data(page, checkin, checkout, config, location_name, l
         await page.goto(url, timeout=60000)
         
         # --- XỬ LÝ POPUP ---
-        await asyncio.sleep(10)
+        await asyncio.sleep(15)
         try: await page.keyboard.press("Escape")
         except: pass
         try:
@@ -135,7 +135,7 @@ async def scrape_detailed_data(page, checkin, checkout, config, location_name, l
         # --- GIAI ĐOẠN 1: SCROLL & LOAD MORE ---
         print("    -> Bắt đầu quy trình mở rộng danh sách...")
         click_count = 0
-        max_clicks = 100
+        max_clicks = 3
         
         while click_count < max_clicks:
             last_height = await page.evaluate("document.body.scrollHeight")
