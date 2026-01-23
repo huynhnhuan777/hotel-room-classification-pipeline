@@ -1,0 +1,199 @@
+{
+  "model_name": "Random Forest Classifier",
+  "model_params": {
+    "n_estimators": 200,
+    "max_depth": 20,
+    "min_samples_split": 5,
+    "min_samples_leaf": 2,
+    "max_features": "sqrt",
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbose": 0
+  },
+  "training_time": 0.5096578598022461,
+  "data_info": {
+    "num_features": 22,
+    "num_classes": 6,
+    "train_samples": 8495,
+    "val_samples": 1820
+  },
+  "train_metrics": {
+    "accuracy": 0.9134785167745733,
+    "precision": 0.9136480062230795,
+    "recall": 0.9134785167745733,
+    "f1_score": 0.9130092143454152,
+    "roc_auc": 0.9917526847870317,
+    "precision_macro": 0.9140988368706284,
+    "recall_macro": 0.9140104029250838,
+    "f1_macro": 0.9135077796927887
+  },
+  "val_metrics": {
+    "accuracy": 0.8016483516483517,
+    "precision": 0.8026382852804116,
+    "recall": 0.8016483516483517,
+    "f1_score": 0.8016695645196785,
+    "roc_auc": 0.9678990769781353,
+    "precision_macro": 0.8035985907854258,
+    "recall_macro": 0.8026655994772574,
+    "f1_macro": 0.8026657919279975
+  },
+  "confusion_matrices": {
+    "train": [
+      [
+        1185,
+        32,
+        22,
+        40,
+        23,
+        142
+      ],
+      [
+        23,
+        1384,
+        0,
+        0,
+        1,
+        20
+      ],
+      [
+        7,
+        19,
+        1250,
+        31,
+        18,
+        6
+      ],
+      [
+        1,
+        0,
+        20,
+        1345,
+        58,
+        0
+      ],
+      [
+        48,
+        22,
+        19,
+        48,
+        1273,
+        32
+      ],
+      [
+        69,
+        23,
+        3,
+        0,
+        8,
+        1323
+      ]
+    ],
+    "val": [
+      [
+        214,
+        11,
+        7,
+        13,
+        8,
+        56
+      ],
+      [
+        19,
+        273,
+        0,
+        0,
+        1,
+        13
+      ],
+      [
+        3,
+        10,
+        250,
+        16,
+        6,
+        1
+      ],
+      [
+        1,
+        0,
+        15,
+        264,
+        25,
+        0
+      ],
+      [
+        23,
+        13,
+        11,
+        14,
+        237,
+        11
+      ],
+      [
+        61,
+        17,
+        2,
+        0,
+        4,
+        221
+      ]
+    ]
+  },
+  "roc_auc_scores": {
+    "0": 0.9359668793464968,
+    "1": 0.9883138636344013,
+    "2": 0.9881428870998622,
+    "3": 0.9826586593085539,
+    "4": 0.9566458698776396,
+    "5": 0.9574268246496781
+  },
+  "feature_importance_top_10": [
+    {
+      "feature": "has_luxury_keyword",
+      "importance": 0.1775172601808764
+    },
+    {
+      "feature": "Final Price",
+      "importance": 0.1309554019888094
+    },
+    {
+      "feature": "Area_m2",
+      "importance": 0.1202272277279916
+    },
+    {
+      "feature": "price_per_m2",
+      "importance": 0.1094229610447278
+    },
+    {
+      "feature": "num_facilities",
+      "importance": 0.08641945187538
+    },
+    {
+      "feature": "has_kitchen",
+      "importance": 0.0661225680282286
+    },
+    {
+      "feature": "m2_per_person",
+      "importance": 0.0655017805467867
+    },
+    {
+      "feature": "has_balcony",
+      "importance": 0.0316394782035149
+    },
+    {
+      "feature": "has_fridge",
+      "importance": 0.0276526811574385
+    },
+    {
+      "feature": "Max People",
+      "importance": 0.0265943742017272
+    }
+  ],
+  "evaluation_summary": {
+    "total_validation_samples": 1820,
+    "correct_predictions": 1459,
+    "wrong_predictions": 361,
+    "features_for_90_importance": 13,
+    "features_for_95_importance": 15
+  }
+}

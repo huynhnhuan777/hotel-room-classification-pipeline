@@ -1,0 +1,132 @@
+{
+  "model_name": "Random Forest",
+  "model_params": {
+    "n_estimators": 200,
+    "max_depth": 20,
+    "min_samples_split": 5,
+    "min_samples_leaf": 2,
+    "max_features": "sqrt",
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbose": 0
+  },
+  "training_time": 0.5096578598022461,
+  "train_metrics": {
+    "accuracy": 0.9478888714487521,
+    "precision": 0.9485867484023335,
+    "recall": 0.9478888714487521,
+    "f1_score": 0.9476766448729537,
+    "roc_auc": 0.9975829716037168
+  },
+  "test_metrics": {
+    "accuracy": 0.8102636534839924,
+    "precision": 0.8087480453966668,
+    "recall": 0.8102636534839924,
+    "f1_score": 0.8086914828927776,
+    "roc_auc": 0.9681352569908209
+  },
+  "val_metrics": {
+    "accuracy": 0.8016483516483517,
+    "precision": 0.8026382852804116,
+    "recall": 0.8016483516483517,
+    "f1_score": 0.8016695645196785,
+    "roc_auc": 0.9678990769781353
+  },
+  "data_info": {
+    "train_split_size": 6371,
+    "test_split_size": 2124,
+    "val_size": 1820,
+    "num_features": 22,
+    "num_classes": 6
+  },
+  "feature_importance": [
+    {
+      "feature": "has_luxury_keyword",
+      "importance": 0.1775172601808764
+    },
+    {
+      "feature": "Final Price",
+      "importance": 0.1309554019888094
+    },
+    {
+      "feature": "Area_m2",
+      "importance": 0.12022722772799162
+    },
+    {
+      "feature": "price_per_m2",
+      "importance": 0.1094229610447278
+    },
+    {
+      "feature": "num_facilities",
+      "importance": 0.08641945187538003
+    },
+    {
+      "feature": "has_kitchen",
+      "importance": 0.06612256802822862
+    },
+    {
+      "feature": "m2_per_person",
+      "importance": 0.0655017805467867
+    },
+    {
+      "feature": "has_balcony",
+      "importance": 0.031639478203514974
+    },
+    {
+      "feature": "has_fridge",
+      "importance": 0.02765268115743857
+    },
+    {
+      "feature": "Max People",
+      "importance": 0.02659437420172722
+    },
+    {
+      "feature": "is_sofa",
+      "importance": 0.026080507403836935
+    },
+    {
+      "feature": "has_pool",
+      "importance": 0.025796632380639978
+    },
+    {
+      "feature": "is_double",
+      "importance": 0.02336286069645583
+    },
+    {
+      "feature": "has_wifi",
+      "importance": 0.02327618491443401
+    },
+    {
+      "feature": "is_single",
+      "importance": 0.02180309866210386
+    },
+    {
+      "feature": "has_tv",
+      "importance": 0.01520880207413293
+    },
+    {
+      "feature": "is_king",
+      "importance": 0.010133195499616518
+    },
+    {
+      "feature": "has_ac",
+      "importance": 0.006162891825773073
+    },
+    {
+      "feature": "is_queen",
+      "importance": 0.004902152247946187
+    },
+    {
+      "feature": "is_bunk",
+      "importance": 0.0012204893395793746
+    },
+    {
+      "feature": "has_breakfast",
+      "importance": 0.0
+    },
+    {
+      "feature": "has_parking",
+      "importance": 0.0
+    }
+  ]
+}
