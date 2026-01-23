@@ -1,0 +1,53 @@
+{
+  "model_name": "models/gemini-flash-latest",
+  "training_examples_count": 48,
+  "features": [
+    "Final Price",
+    "Max People",
+    "Area_m2",
+    "price_per_m2",
+    "m2_per_person",
+    "num_facilities",
+    "has_luxury_keyword",
+    "is_king",
+    "is_queen",
+    "is_double",
+    "is_single",
+    "is_bunk",
+    "is_sofa",
+    "has_wifi",
+    "has_ac",
+    "has_breakfast",
+    "has_tv",
+    "has_pool",
+    "has_balcony",
+    "has_parking",
+    "has_kitchen",
+    "has_fridge"
+  ],
+  "classes": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "class_names": [
+    "Deluxe",
+    "Executive",
+    "Luxury",
+    "Standard",
+    "Suite",
+    "Superior"
+  ],
+  "label_mapping": {
+    "Deluxe": 0,
+    "Executive": 1,
+    "Luxury": 2,
+    "Standard": 3,
+    "Suite": 4,
+    "Superior": 5
+  },
+  "base_prompt": "\nBạn là mô hình phân loại phòng khách sạn.\n\nNhiệm vụ: phân loại phòng vào MỘT trong các loại:\nDeluxe, Executive, Luxury, Standard, Suite, Superior\n\n\nVí dụ 1:\n- Final Price: 0.007380051\n- Max People: 0.142857143\n- Area_m2: 0.352941176\n- num_facilities: 0.029411765\n- has_luxury_keyword: 1.0\n→ Room Class: Deluxe\n\nVí dụ 2:\n- Final Price: 0.005580124\n- Max People: 0.142857143\n- Area_m2: 0.5\n- num_facilities: 0.0\n- has_luxury_keyword: 1.0\n→ Room Class: Deluxe\n\nVí dụ 3:\n- Final Price: 0.120910033\n- Max People: 0.857142857\n- Area_m2: 0.367647059\n- num_facilities: 0.441176471\n- has_luxury_keyword: 1.0\n→ Room Class: Deluxe\n\nVí dụ 4:\n- Final Price: 0.130559905\n- Max People: 0.0\n- Area_m2: 0.294117647\n- num_facilities: 0.794117647\n- has_luxury_keyword: 1.0\n→ Room Class: Deluxe\n\nVí dụ 5:\n- Final Price: 0.057685875\n- Max People: 0.571428571\n- Area_m2: 0.205882353\n- num_facilities: 0.735294118\n- has_luxury_keyword: 1.0\n→ Room Class: Deluxe\n\nVí dụ 6:\n- Final Price: 0.096136727\n- Max People: 0.571428571\n- Area_m2: 0.205882353\n- num_facilities: 0.470588235\n- has_luxury_keyword: 1.0\n→ Room Class: Deluxe\n\nVí dụ 7:\n- Final Price: 0.003201853\n- Max People: 0.142857143\n- Area_m2: 0.205882353\n- num_facilities: 0.0\n- has_luxury_keyword: 1.0\n→ Room Class: Deluxe\n\nVí dụ 8:\n- Final Price: 0.015035549\n- Max People: 0.142857143\n- Area_m2: 0.294117647\n- num_facilities: 0.0\n- has_luxury_keyword: 0.0\n→ Room Class: Deluxe\n\nVí dụ 9:\n- Final Price: 0.129412774\n- Max People: 0.142857143\n- Area_m2: 0.323529412\n- num_facilities: 0.441176471\n- has_luxury_keyword: 1.0\n→ Room Class: Executive\n\nVí dụ 10:\n- Final Price: 0.012846329\n- Max People: 0.142857143\n- Area_m2: 0.352941176\n- num_facilities: 0.0\n- has_luxury_keyword: 1.0\n→ Room Class: Executive\n\n\nChỉ trả lời TÊN CLASS, không giải thích.\n"
+}
