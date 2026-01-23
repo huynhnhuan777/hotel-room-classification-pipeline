@@ -1,0 +1,2 @@
+Final Price,Max People,Area_m2,price_per_m2,m2_per_person,num_facilities,has_luxury_keyword,is_king,is_queen,is_double,is_single,is_bunk,is_sofa,has_wifi,has_ac,has_breakfast,has_tv,has_pool,has_balcony,has_parking,has_kitchen,has_fridge,room_class,lr_room_class,lr_conf,is_misaligned
+0.120450542,0.571428571,0.529411765,0.035418618,0.101369863,0.823529412,0,0,0,1,0,0,1,1,1,0,1,1,1,0,1,0,2,4,0.905119139132744,True
